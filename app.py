@@ -199,7 +199,7 @@ def login_page():
             conn.close()
            def today_sales_card():
     """Complete Today's Sales Card - Error Free"""
-    
+  def today_sales_card():
     st.markdown("""
     <style>
     .sales-card {

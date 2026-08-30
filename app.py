@@ -196,11 +196,38 @@ def login_page():
             c = conn.cursor()
             c.execute("SELECT password, role FROM users WHERE username=?", (username,))
             row = c.fetchone()
-            conn.close()
-           def today_sales_card():
+                   conn.close()
+
+    # (Yahan aap login logic ke baad 'row' check kar sakte hain, jaise session state set karna)
+    # agar aapko aur code hai 'if' ke andar, toh woh yahan rakhna hai
+
+def today_sales_card():
     """Complete Today's Sales Card - Error Free"""
-  def today_sales_card():
     st.markdown("""
+    <style>
+    .sales-card {
+        background: linear-gradient(145deg, #ffffff, #f8f9fa);
+        border-radius: 15px;
+        padding: 18px 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.06);
+        text-align: center;
+        border-left: 5px solid #2E8857;
+        margin-bottom: 8px;
+        transition: transform 0.2s;
+    }
+    .sales-card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
+    .sales-card-red { border-left-color: #dc3545; }
+    .sales-card-blue { border-left-color: #007bff; }
+    .sales-card-gold { border-left-color: #ffc107; }
+    .sales-card-purple { border-left-color: #6f42c1; }
+    .sales-card-orange { border-left-color: #fd7e14; }
+    .sales-value { font-size: 1.8rem; font-weight: 700; color: #1a1a2e; margin: 3px 0; }
+    .sales-label { font-size: 0.85rem; color: #6c757d; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; }
+    .payment-card { background: #f8f9fa; border-radius: 10px; padding: 12px; text-align: center; border: 1px solid #e9ecef; }
+    </style>
+    """)
+    
+    # Aapka baaki ka card ka code yahan aayega (jo iske neeche likha hoga)
     <style>
     .sales-card {
         background: linear-gradient(145deg, #ffffff, #f8f9fa);

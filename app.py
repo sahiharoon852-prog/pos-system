@@ -174,79 +174,200 @@ def show_sidebar():
 
 # ----------------------------- DASHBOARD -----------------------------
 def dashboard():
-    st.header("📊 Dashboard")
+    # --- CSS for Beautiful Cards ---
+    st.markdown("""
+    <style>
+    .metric-card {
+        background: linear-gradient(145deg, #ffffff, #f0f2f6);
+        border-radius: 15px;
+        padding: 15px 10px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        text-align: center;
+        border-left: 6px solid #2E8B57;
+        margin-bottom: 10px;
+    }
+    .metric-card-red { border-left-color: #dc3545; }
+    .metric-card-blue { border-left-color: #007bff; }
+    .metric-card-gold { border-left-color: #ffc107; }
+    .metric-card-purple { border-left-color: #6f42c1; }
+    .metric-value {
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: #1a1a2e;
+        margin: 5px 0;
+    }
+    .metric-label {
+        font-size: 0.9rem;
+        color: #6c757d;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.header("📊 Executive Dashboard")
+    
+    hour = datetime.now().hour
+    if hour < 12:
+        greet = "🌅 Good Morning"
+    elif hour < 18:
+        greet = "☀️ Good Afternoon"
+    else:
+        greet = "🌙 Good Evening"
+    st.markdown(f"<h3 style='color:#2E8B57;'>{greet}, {st.session_state.username}!</h3>", unsafe_allow_html=True)
+    st.caption(f"📅 {datetime.now().strftime('%A, %d %B %Y')} | ⏰ {datetime.now().strftime('%I:%M %p')}")
+    st.divider()
+
     conn = get_conn()
     c = conn.cursor()
     today = datetime.now().strftime("%Y-%m-%d")
+    yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+
+    c.execute("SELECT COALESCE(SUM(total), 0) FROM sales WHERE date LIKE ?", (today+'%',))
+    today_sales = c.fetchone()[0]
     
-    # Today's Sales
-    c.execute("SELECT SUM(total) FROM sales WHERE date LIKE ?", (today+'%',))
-    today_sales = c.fetchone()[0] or 0.0
-    
-    # Today's Profit (30% margin)
+    c.execute("SELECT COALESCE(SUM(total), 0) FROM sales WHERE date LIKE ?", (yesterday+'%',))
+    yesterday_sales = c.fetchone()[0]
+    sales_delta = today_sales - yesterday_sales
+    sales_delta_str = f"+{sales_delta:.2f}" if sales_delta >= 0 else f"{sales_delta:.2f}"
+
     today_profit = today_sales * 0.3
     
-    # Total Sales (all time)
-    c.execute("SELECT SUM(total) FROM sales")
-    total_sales = c.fetchone()[0] or 0.0
+    c.execute("SELECT COALESCE(SUM(total), 0) FROM sales")
+    total_sales = c.fetchone()[0]
     
-    # Total Products
     c.execute("SELECT COUNT(*) FROM products")
     total_products = c.fetchone()[0]
     
-    # Low Stock Alert (stock < 5)
     c.execute("SELECT COUNT(*) FROM products WHERE stock < 5")
     low_stock = c.fetchone()[0]
     
-    # Total Customers
     c.execute("SELECT COUNT(*) FROM customers")
     total_customers = c.fetchone()[0]
     
-    # Total Suppliers
     c.execute("SELECT COUNT(*) FROM suppliers")
     total_suppliers = c.fetchone()[0]
     
-    # Today's Expenses
-    c.execute("SELECT SUM(amount) FROM expenses WHERE date = ?", (today,))
-    today_expenses = c.fetchone()[0] or 0.0
-    
+    c.execute("SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE date = ?", (today,))
+    today_expenses = c.fetchone()[0]
     conn.close()
-    
-    # Row 1: 4 metrics
+
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Today's Sales", f"Rs. {today_sales:.2f}")
-    col2.metric("Today's Profit", f"Rs. {today_profit:.2f}")
-    col3.metric("Total Sales", f"Rs. {total_sales:.2f}")
-    col4.metric("Total Products", total_products)
     
-    # Row 2: 4 metrics
+    with col1:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">💰 Today's Sales</div>
+            <div class="metric-value">Rs. {today_sales:,.2f}</div>
+            <small style="color:{'green' if sales_delta >= 0 else 'red'};">{sales_delta_str} vs yesterday</small>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class="metric-card metric-card-gold">
+            <div class="metric-label">📈 Today's Profit</div>
+            <div class="metric-value">Rs. {today_profit:,.2f}</div>
+            <small>Est. 30% margin</small>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown(f"""
+        <div class="metric-card metric-card-blue">
+            <div class="metric-label">📊 Total Sales</div>
+            <div class="metric-value">Rs. {total_sales:,.2f}</div>
+            <small>All time</small>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col4:
+        st.markdown(f"""
+        <div class="metric-card metric-card-purple">
+            <div class="metric-label">📦 Total Products</div>
+            <div class="metric-value">{total_products}</div>
+            <small>In inventory</small>
+        </div>
+        """, unsafe_allow_html=True)
+
     col5, col6, col7, col8 = st.columns(4)
-    col5.metric("Low Stock Alert", low_stock, delta="Need restock" if low_stock > 0 else "OK")
-    col6.metric("Total Customers", total_customers)
-    col7.metric("Total Suppliers", total_suppliers)
-    col8.metric("Today's Expenses", f"Rs. {today_expenses:.2f}")
     
-    # Recent Transactions
-    st.subheader("🕒 Recent Transactions")
-    conn = get_conn()
-    df_recent = pd.read_sql_query("SELECT id, invoice_no, product_name, qty, total, date FROM sales ORDER BY id DESC LIMIT 10", conn)
-    conn.close()
-    if not df_recent.empty:
-        st.dataframe(df_recent, use_container_width=True)
-    else:
-        st.info("No recent sales.")
+    with col5:
+        st.markdown(f"""
+        <div class="metric-card metric-card-red">
+            <div class="metric-label">⚠️ Low Stock Alert</div>
+            <div class="metric-value">{low_stock}</div>
+            <small>{'Need restock!' if low_stock > 0 else '✅ All stocked up'}</small>
+        </div>
+        """, unsafe_allow_html=True)
     
-    # Sales Chart (last 7 days)
-    st.subheader("📈 Sales Chart (Last 7 Days)")
-    conn = get_conn()
-    seven_days_ago = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
-    df_chart = pd.read_sql_query("SELECT date, SUM(total) as daily_total FROM sales WHERE date >= ? GROUP BY date ORDER BY date", (seven_days_ago,), conn)
-    conn.close()
-    if not df_chart.empty:
-        df_chart['date'] = pd.to_datetime(df_chart['date'])
-        st.line_chart(df_chart.set_index('date')['daily_total'])
-    else:
-        st.info("No sales data for the last 7 days.")
+    with col6:
+        st.markdown(f"""
+        <div class="metric-card metric-card-blue">
+            <div class="metric-label">👤 Customers</div>
+            <div class="metric-value">{total_customers}</div>
+            <small>Total registered</small>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col7:
+        st.markdown(f"""
+        <div class="metric-card metric-card-purple">
+            <div class="metric-label">🏭 Suppliers</div>
+            <div class="metric-value">{total_suppliers}</div>
+            <small>Total partners</small>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col8:
+        st.markdown(f"""
+        <div class="metric-card metric-card-gold">
+            <div class="metric-label">💸 Today's Expenses</div>
+            <div class="metric-value">Rs. {today_expenses:,.2f}</div>
+            <small>{datetime.now().strftime('%d-%b-%Y')}</small>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.divider()
+
+    col_left, col_right = st.columns([1.5, 1])
+    
+    with col_left:
+        st.subheader("🕒 Recent Transactions")
+        conn = get_conn()
+        df_recent = pd.read_sql_query("SELECT invoice_no, product_name, qty, total, date FROM sales ORDER BY id DESC LIMIT 8", conn)
+        conn.close()
+        if not df_recent.empty:
+            df_recent['date'] = pd.to_datetime(df_recent['date']).dt.strftime('%d-%b %I:%M %p')
+            st.dataframe(df_recent, use_container_width=True, hide_index=True)
+        else:
+            st.info("No recent sales. Start billing now! 🚀")
+
+    with col_right:
+        st.subheader("📈 7-Day Sales Trend")
+        conn = get_conn()
+        seven_days_ago = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+        df_chart = pd.read_sql_query("""
+            SELECT date, COALESCE(SUM(total), 0) as daily_total 
+            FROM sales 
+            WHERE date >= ? 
+            GROUP BY date 
+            ORDER BY date
+        """, (seven_days_ago,), conn)
+        conn.close()
+        
+        if not df_chart.empty:
+            df_chart['date'] = pd.to_datetime(df_chart['date'])
+            st.line_chart(df_chart.set_index('date')['daily_total'], height=250)
+        else:
+            st.info("No sales data for this week.")
+
+    st.divider()
+    col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
+    with col_btn2:
+        if st.button("🔄 Go to POS / New Sale", use_container_width=True, type="primary"):
+            st.session_state.page = "💰 POS / New Sale"
+            st.rerun()
 
 # ----------------------------- POS / NEW SALE -----------------------------
 def pos_sale():
@@ -290,7 +411,6 @@ def pos_sale():
     else:
         st.info("Cart is empty. Add items from sidebar.")
 
-    # Add to cart from sidebar
     with st.sidebar:
         st.markdown("---")
         st.header("🛍️ Add to Cart")

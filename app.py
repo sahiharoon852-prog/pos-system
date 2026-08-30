@@ -40,7 +40,7 @@ init_db()
 # --------------------- LOGIN PAGE ---------------------
 def login_page():
     st.markdown("<h1 style='text-align: center; color: #2E8B57;'>🛒 M.H.M 786 STORE</h1>", unsafe_allow_html=True)
- st.markdown("<h1 style='text-align: center; color: #2E8B57;'>🛒 USMAN GENERAL STORE</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: #2E8B57;'> USMAN GENERAL STORE</h1>", unsafe_allow_html=True)
     st.markdown("---")
     
     col1, col2, col3 = st.columns([1, 1.5, 1])

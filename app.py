@@ -11,7 +11,7 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "cart" not in st.session_state:
     st.session_state.cart = []
-st.set_page_config(page_title="Usman General Store", page_icon="🛒", layout="wide")
+
 # --- Database Setup ---
 def init_db():
     conn = sqlite3.connect('pos_system.db')
@@ -40,7 +40,7 @@ init_db()
 # --------------------- LOGIN PAGE ---------------------
 def login_page():
     st.markdown("<h1 style='text-align: center; color: #2E8B57;'>🛒 M.H.M 786 STORE</h1>", unsafe_allow_html=True)
-st.markdown("<h1 style='text-align: center; color: #2E8B57;'> USMAN GENERAL STORE</h1>", unsafe_allow_html=True)
+    st.markdown("<h4 style='text-align: center;'>Secure Point of Sale System</h4>", unsafe_allow_html=True)
     st.markdown("---")
     
     col1, col2, col3 = st.columns([1, 1.5, 1])
@@ -58,7 +58,7 @@ st.markdown("<h1 style='text-align: center; color: #2E8B57;'> USMAN GENERAL STOR
         
         st.caption("📌 Default PIN: **786** (Keep this secret)")
 
-# --------------------- MAIN POS APP (ENGLISH) ---------------------
+# --------------------- MAIN POS APP ---------------------
 def main_app():
     with st.sidebar:
         st.image("https://img.icons8.com/color/96/000000/grocery-store.png", width=80)
@@ -91,7 +91,7 @@ def main_app():
             qty = st.number_input("Quantity", min_value=1, max_value=max_stock, value=1, step=1)
             if st.button("➕ Add to Cart", use_container_width=True, type="primary"):
                 st.session_state.cart.append({"name": selected_product, "qty": qty, "price": price})
-  st.markdown("### 🏪 Usman General Store")
+                st.success(f"✅ Added {qty} x {selected_product} to cart!")
         else:
             st.error(f"❌ {selected_product} is out of stock!")
             st.number_input("Quantity", min_value=1, max_value=1, value=1, step=1, disabled=True)
@@ -121,7 +121,7 @@ def main_app():
     
     with col_right:
         st.subheader("📋 Checkout")
-        st.title("🧾 Usman General - Billing Counter")
+        if st.session_state.cart:
             if st.button("✅ Generate & Save Bill", use_container_width=True, type="primary"):
                 conn = sqlite3.connect('pos_system.db')
                 c = conn.cursor()

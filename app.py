@@ -82,7 +82,10 @@ def reset_database():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
         phone TEXT,
-        email TEXT,
+      def get_conn():
+    conn = sqlite3.connect('pos_system.db')
+    conn.row_factory = sqlite3.Row  # اس سے ڈیٹا ڈکشنری کی طرح آتا ہے
+    return conn
         address TEXT
     )''')
     
@@ -194,21 +197,9 @@ def login_page():
             c.execute("SELECT password, role FROM users WHERE username=?", (username,))
             row = c.fetchone()
             conn.close()
-            if row and row[0] == password:
-                st.session_state.logged_in = True
-                st.session_state.username = username
-                st.rerun()
-            else:
-                st.error("Invalid credentials. Try admin / 786")
-
-# ============================================================================
-# ======================== TODAY'S SALES CARD ===============================
-# ============================================================================
-
-def today_sales_card():
+           def today_sales_card():
     """Complete Today's Sales Card - Error Free"""
     
-    # --- Custom CSS ---
     st.markdown("""
     <style>
     .sales-card {
@@ -235,40 +226,44 @@ def today_sales_card():
     
     st.markdown("<h3 style='color:#2E8B57;'>💰 Today's Sales</h3>", unsafe_allow_html=True)
     
-    conn = get_conn()
-    c = conn.cursor()
-    today = datetime.now().strftime("%Y-%m-%d")
+    # --- Database queries with proper connection handling ---
+    try:
+        conn = get_conn()
+        c = conn.cursor()
+        today = datetime.now().strftime("%Y-%m-%d")
+        
+        c.execute("SELECT COALESCE(SUM(total), 0) FROM sales WHERE date LIKE ? AND return_status = 'active'", (today+'%',))
+        total_sales = c.fetchone()[0]
+        
+        c.execute("SELECT COUNT(DISTINCT invoice_no) FROM sales WHERE date LIKE ? AND return_status = 'active'", (today+'%',))
+        total_invoices = c.fetchone()[0]
+        
+        c.execute("SELECT COALESCE(SUM(qty), 0) FROM sales WHERE date LIKE ? AND return_status = 'active'", (today+'%',))
+        total_items = c.fetchone()[0]
+        
+        avg_invoice = total_sales / total_invoices if total_invoices > 0 else 0.0
+        
+        c.execute("SELECT COALESCE(SUM(total), 0) FROM sales WHERE date LIKE ? AND payment_method = 'Cash' AND return_status = 'active'", (today+'%',))
+        cash_sales = c.fetchone()[0]
+        
+        c.execute("SELECT COALESCE(SUM(total), 0) FROM sales WHERE date LIKE ? AND payment_method = 'Card' AND return_status = 'active'", (today+'%',))
+        card_sales = c.fetchone()[0]
+        
+        c.execute("SELECT COALESCE(SUM(total), 0) FROM sales WHERE date LIKE ? AND payment_method = 'Online' AND return_status = 'active'", (today+'%',))
+        online_sales = c.fetchone()[0]
+        
+        c.execute("SELECT COALESCE(SUM(total), 0) FROM sales WHERE date LIKE ? AND payment_method = 'Credit' AND return_status = 'active'", (today+'%',))
+        credit_sales = c.fetchone()[0]
+        
+        c.execute("SELECT COALESCE(SUM(total), 0), COUNT(*) FROM sales WHERE date LIKE ? AND return_status = 'returned'", (today+'%',))
+        returned_amount, returned_count = c.fetchone()
+        
+        conn.close()
+    except Exception as e:
+        st.error(f"Database error: {e}")
+        return
     
-    # --- Safe queries with COALESCE ---
-    c.execute("SELECT COALESCE(SUM(total), 0) FROM sales WHERE date LIKE ? AND return_status = 'active'", (today+'%',))
-    total_sales = c.fetchone()[0]
-    
-    c.execute("SELECT COUNT(DISTINCT invoice_no) FROM sales WHERE date LIKE ? AND return_status = 'active'", (today+'%',))
-    total_invoices = c.fetchone()[0]
-    
-    c.execute("SELECT COALESCE(SUM(qty), 0) FROM sales WHERE date LIKE ? AND return_status = 'active'", (today+'%',))
-    total_items = c.fetchone()[0]
-    
-    avg_invoice = total_sales / total_invoices if total_invoices > 0 else 0.0
-    
-    c.execute("SELECT COALESCE(SUM(total), 0) FROM sales WHERE date LIKE ? AND payment_method = 'Cash' AND return_status = 'active'", (today+'%',))
-    cash_sales = c.fetchone()[0]
-    
-    c.execute("SELECT COALESCE(SUM(total), 0) FROM sales WHERE date LIKE ? AND payment_method = 'Card' AND return_status = 'active'", (today+'%',))
-    card_sales = c.fetchone()[0]
-    
-    c.execute("SELECT COALESCE(SUM(total), 0) FROM sales WHERE date LIKE ? AND payment_method = 'Online' AND return_status = 'active'", (today+'%',))
-    online_sales = c.fetchone()[0]
-    
-    c.execute("SELECT COALESCE(SUM(total), 0) FROM sales WHERE date LIKE ? AND payment_method = 'Credit' AND return_status = 'active'", (today+'%',))
-    credit_sales = c.fetchone()[0]
-    
-    c.execute("SELECT COALESCE(SUM(total), 0), COUNT(*) FROM sales WHERE date LIKE ? AND return_status = 'returned'", (today+'%',))
-    returned_amount, returned_count = c.fetchone()
-    
-    conn.close()
-    
-    # --- Row 1: 4 Main Metrics ---
+    # --- Display Cards ---
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.markdown(f"""
@@ -301,7 +296,7 @@ def today_sales_card():
     
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # --- Row 2: Payment Methods ---
+    # --- Payment Methods ---
     st.markdown("<h4 style='color:#495057;'>💳 Payment Methods</h4>", unsafe_allow_html=True)
     col_c1, col_c2, col_c3, col_c4 = st.columns(4)
     with col_c1:
@@ -335,7 +330,7 @@ def today_sales_card():
     
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # --- Row 3: Returned & Cancelled ---
+    # --- Returned & Cancelled ---
     col_r1, col_r2 = st.columns(2)
     with col_r1:
         st.markdown(f"""
@@ -345,6 +340,39 @@ def today_sales_card():
             <div class='sales-sub'>({returned_count} items)</div>
         </div>
         """, unsafe_allow_html=True)
+    with col_r2:
+        st.markdown(f"""
+        <div class='sales-card sales-card-orange'>
+            <div class='sales-label'>❌ Cancelled</div>
+            <div class='sales-value' style='font-size:1.4rem;'>Rs. 0.00</div>
+            <div class='sales-sub'>(0 items)</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # --- View List Button (FIXED) ---
+    if st.button("📋 View Today's Sales List", type="primary"):
+        with st.expander("📋 Today's Sales Details", expanded=True):
+            try:
+                conn = get_conn()
+                today = datetime.now().strftime("%Y-%m-%d")
+                df_today = pd.read_sql_query("""
+                    SELECT invoice_no, product_name, qty, total, payment_method, date, return_status 
+                    FROM sales 
+                    WHERE date LIKE ? 
+                    ORDER BY id DESC
+                """, (today+'%',), conn)
+                conn.close()
+                if not df_today.empty:
+                    df_today['date'] = pd.to_datetime(df_today['date']).dt.strftime('%I:%M %p')
+                    df_today['return_status'] = df_today['return_status'].apply(lambda x: '🔄 Returned' if x == 'returned' else '✅ Active')
+                    st.dataframe(df_today, use_container_width=True, hide_index=True)
+                else:
+                    st.info("No sales today yet.")
+            except Exception as e:
+                st.error(f"Could not load sales list. Please try again.")
+                # Don't show the internal error message to user
     with col_r2:
         st.markdown(f"""
         <div class='sales-card sales-card-orange'>
@@ -419,44 +447,214 @@ def main_app():
     hour = datetime.now().hour
     if hour < 12:
         greet = "🌅 Good Morning"
-    elif hour < 18:
-        greet = "☀️ Good Afternoon"
+   def main_app():
+    # --- Sidebar Navigation ---
+    with st.sidebar:
+        st.image("https://img.icons8.com/color/96/000000/grocery-store.png", width=80)
+        st.markdown("### M.H.M 786 Store")
+        st.caption(f"👤 {st.session_state.username}")
+        st.divider()
+        
+        if st.button("🚪 Logout", use_container_width=True):
+            st.session_state.logged_in = False
+            st.session_state.cart = []
+            st.rerun()
+        
+        st.markdown("---")
+        st.markdown("### 📋 Menu")
+        
+        # Navigation menu - clickable
+        menu = {
+            "🏠 Dashboard": "dashboard",
+            "💰 POS / New Sale": "pos",
+            "📦 Products": "products",
+            "📂 Categories": "categories",
+            "👤 Customers": "customers",
+            "🏭 Suppliers": "suppliers",
+            "💸 Expenses": "expenses",
+            "⚙️ Settings": "settings"
+        }
+        
+        # Store selected page in session state
+        for label, page in menu.items():
+            if st.button(label, use_container_width=True, key=page):
+                st.session_state.page = page
+                st.rerun()
+        
+        st.markdown("---")
+        st.caption("© 2026 M.H.M 786")
+    
+    # --- Page Content ---
+    if "page" not in st.session_state:
+        st.session_state.page = "dashboard"
+    
+    page = st.session_state.page
+    
+    if page == "dashboard":
+        # Main Dashboard
+        st.header("📊 Executive Dashboard")
+        
+        hour = datetime.now().hour
+        if hour < 12:
+            greet = "🌅 Good Morning"
+        elif hour < 18:
+            greet = "☀️ Good Afternoon"
+        else:
+            greet = "🌙 Good Evening"
+        st.markdown(f"<h3 style='color:#2E8B57;'>{greet}, {st.session_state.username}!</h3>", unsafe_allow_html=True)
+        st.caption(f"📅 {datetime.now().strftime('%A, %d %B %Y')} | ⏰ {datetime.now().strftime('%I:%M %p')}")
+        st.divider()
+        
+        today_sales_card()
+        
+        # Quick Stats
+        st.divider()
+        st.subheader("📈 Quick Stats")
+        conn = get_conn()
+        c = conn.cursor()
+        today = datetime.now().strftime("%Y-%m-%d")
+        c.execute("SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE date = ?", (today,))
+        today_expenses = c.fetchone()[0]
+        c.execute("SELECT COUNT(*) FROM products")
+        total_products = c.fetchone()[0]
+        c.execute("SELECT COUNT(*) FROM products WHERE stock < 5")
+        low_stock = c.fetchone()[0]
+        conn.close()
+        
+        col1, col2, col3 = st.columns(3)
+        col1.metric("💸 Today's Expenses", f"Rs. {today_expenses:,.2f}")
+        col2.metric("📦 Total Products", total_products)
+        col3.metric("⚠️ Low Stock Alert", low_stock, delta="Need restock" if low_stock > 0 else "✅ OK")
+        
+        st.divider()
+        st.caption("✅ M.H.M 786 POS - Fully Functional | InshaAllah!")
+    
+    elif page == "pos":
+        st.header("💰 POS / New Sale")
+        st.info("POS module coming soon! InshaAllah.")
+        st.warning("This page is under development.")
+    
+    elif page == "products":
+        st.header("📦 Products Management")
+        # Show products table
+        conn = get_conn()
+        df = pd.read_sql_query("SELECT * FROM products ORDER BY name", conn)
+        conn.close()
+        st.dataframe(df, use_container_width=True)
+        
+        with st.expander("➕ Add New Product"):
+            name = st.text_input("Product Name")
+            category = st.text_input("Category")
+            price = st.number_input("Price (Rs.)", min_value=0.0, step=1.0)
+            stock = st.number_input("Stock", min_value=0, step=1)
+            if st.button("Add Product"):
+                if name and price >= 0 and stock >= 0:
+                    conn = get_conn()
+                    c = conn.cursor()
+                    try:
+                        c.execute("INSERT INTO products (name, category, price, stock) VALUES (?,?,?,?)", 
+                                  (name, category, price, stock))
+                        conn.commit()
+                        st.success(f"✅ {name} added successfully!")
+                        st.rerun()
+                    except:
+                        st.error("Product name already exists!")
+                    conn.close()
+    
+    elif page == "categories":
+        st.header("📂 Categories")
+        conn = get_conn()
+        df = pd.read_sql_query("SELECT * FROM categories ORDER BY name", conn)
+        conn.close()
+        st.dataframe(df, use_container_width=True)
+        
+        with st.expander("➕ Add Category"):
+            cat = st.text_input("Category Name")
+            if st.button("Add Category"):
+                if cat:
+                    conn = get_conn()
+                    c = conn.cursor()
+                    try:
+                        c.execute("INSERT INTO categories (name) VALUES (?)", (cat,))
+                        conn.commit()
+                        st.success(f"✅ {cat} added!")
+                        st.rerun()
+                    except:
+                        st.error("Category already exists!")
+                    conn.close()
+    
+    elif page == "customers":
+        st.header("👤 Customers")
+        conn = get_conn()
+        df = pd.read_sql_query("SELECT * FROM customers ORDER BY name", conn)
+        conn.close()
+        st.dataframe(df, use_container_width=True)
+        
+        with st.expander("➕ Add Customer"):
+            name = st.text_input("Name")
+            phone = st.text_input("Phone")
+            email = st.text_input("Email")
+            address = st.text_area("Address")
+            if st.button("Add Customer"):
+                if name:
+                    conn = get_conn()
+                    c = conn.cursor()
+                    c.execute("INSERT INTO customers (name, phone, email, address) VALUES (?,?,?,?)", 
+                              (name, phone, email, address))
+                    conn.commit()
+                    conn.close()
+                    st.success(f"✅ {name} added!")
+                    st.rerun()
+    
+    elif page == "suppliers":
+        st.header("🏭 Suppliers")
+        conn = get_conn()
+        df = pd.read_sql_query("SELECT * FROM suppliers ORDER BY name", conn)
+        conn.close()
+        st.dataframe(df, use_container_width=True)
+        
+        with st.expander("➕ Add Supplier"):
+            name = st.text_input("Name")
+            phone = st.text_input("Phone")
+            email = st.text_input("Email")
+            address = st.text_area("Address")
+            if st.button("Add Supplier"):
+                if name:
+                    conn = get_conn()
+                    c = conn.cursor()
+                    c.execute("INSERT INTO suppliers (name, phone, email, address) VALUES (?,?,?,?)", 
+                              (name, phone, email, address))
+                    conn.commit()
+                    conn.close()
+                    st.success(f"✅ {name} added!")
+                    st.rerun()
+    
+    elif page == "expenses":
+        st.header("💸 Expenses")
+        conn = get_conn()
+        df = pd.read_sql_query("SELECT * FROM expenses ORDER BY id DESC", conn)
+        conn.close()
+        st.dataframe(df, use_container_width=True)
+        
+        with st.expander("➕ Add Expense"):
+            desc = st.text_input("Description")
+            amount = st.number_input("Amount (Rs.)", min_value=0.0, step=1.0)
+            category = st.selectbox("Category", ["Rent", "Utilities", "Salaries", "Transport", "Other"])
+            date = st.date_input("Date", datetime.now())
+            if st.button("Add Expense"):
+                if desc and amount > 0:
+                    conn = get_conn()
+                    c = conn.cursor()
+                    c.execute("INSERT INTO expenses (description, amount, category, date) VALUES (?,?,?,?)", 
+                              (desc, amount, category, date.strftime('%Y-%m-%d')))
+                    conn.commit()
+                    conn.close()
+                    st.success("✅ Expense added!")
+                    st.rerun()
+    
+    elif page == "settings":
+        st.header("⚙️ Settings")
+        st.info("Settings page coming soon! InshaAllah.")
+    
     else:
-        greet = "🌙 Good Evening"
-    st.markdown(f"<h3 style='color:#2E8B57;'>{greet}, {st.session_state.username}!</h3>", unsafe_allow_html=True)
-    st.caption(f"📅 {datetime.now().strftime('%A, %d %B %Y')} | ⏰ {datetime.now().strftime('%I:%M %p')}")
-    st.divider()
-    
-    # ---- CALL TODAY'S SALES CARD ----
-    today_sales_card()
-    
-    # --- Quick Stats Footer ---
-    st.divider()
-    st.subheader("📈 Quick Stats")
-    conn = get_conn()
-    c = conn.cursor()
-    today = datetime.now().strftime("%Y-%m-%d")
-    c.execute("SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE date = ?", (today,))
-    today_expenses = c.fetchone()[0]
-    c.execute("SELECT COUNT(*) FROM products")
-    total_products = c.fetchone()[0]
-    c.execute("SELECT COUNT(*) FROM products WHERE stock < 5")
-    low_stock = c.fetchone()[0]
-    conn.close()
-    
-    col1, col2, col3 = st.columns(3)
-    col1.metric("💸 Today's Expenses", f"Rs. {today_expenses:,.2f}")
-    col2.metric("📦 Total Products", total_products)
-    col3.metric("⚠️ Low Stock Alert", low_stock, delta="Need restock" if low_stock > 0 else "✅ OK")
-    
-    st.divider()
-    st.caption("✅ M.H.M 786 POS - Fully Functional | InshaAllah!")
-
-# ============================================================================
-# ============================= RUN ==========================================
-# ============================================================================
-
-if not st.session_state.logged_in:
-    login_page()
-else:
-    main_app()
+        st.error("Page not found!")

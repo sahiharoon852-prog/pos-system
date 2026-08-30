@@ -14,11 +14,12 @@ if "username" not in st.session_state:
 if "cart" not in st.session_state:
     st.session_state.cart = []
 
-# ----------------------------- DATABASE SETUP -----------------------------
+# ----------------------------- DATABASE RESET (COMPLETE) -----------------------------
 def reset_database():
     conn = sqlite3.connect('pos_system.db')
     c = conn.cursor()
     
+    # Drop all tables
     c.execute("DROP TABLE IF EXISTS products")
     c.execute("DROP TABLE IF EXISTS sales")
     c.execute("DROP TABLE IF EXISTS users")
@@ -30,6 +31,7 @@ def reset_database():
     c.execute("DROP TABLE IF EXISTS purchases")
     c.execute("DROP TABLE IF EXISTS settings")
     
+    # Create products
     c.execute('''CREATE TABLE products (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT UNIQUE,
@@ -38,6 +40,7 @@ def reset_database():
         stock INTEGER
     )''')
     
+    # Create sales with payment_method column
     c.execute('''CREATE TABLE sales (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         invoice_no TEXT,
@@ -51,6 +54,7 @@ def reset_database():
         return_status TEXT DEFAULT 'active'
     )''')
     
+    # Create users
     c.execute('''CREATE TABLE users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE,
@@ -58,11 +62,13 @@ def reset_database():
         role TEXT
     )''')
     
+    # Create categories
     c.execute('''CREATE TABLE categories (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT UNIQUE
     )''')
     
+    # Create customers
     c.execute('''CREATE TABLE customers (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
@@ -71,6 +77,7 @@ def reset_database():
         address TEXT
     )''')
     
+    # Create suppliers
     c.execute('''CREATE TABLE suppliers (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
@@ -79,6 +86,7 @@ def reset_database():
         address TEXT
     )''')
     
+    # Create expenses
     c.execute('''CREATE TABLE expenses (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         description TEXT,
@@ -87,6 +95,7 @@ def reset_database():
         date TEXT
     )''')
     
+    # Create returns
     c.execute('''CREATE TABLE returns (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         sale_id INTEGER,
@@ -96,6 +105,7 @@ def reset_database():
         date TEXT
     )''')
     
+    # Create purchases
     c.execute('''CREATE TABLE purchases (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         supplier_id INTEGER,
@@ -106,19 +116,25 @@ def reset_database():
         date TEXT
     )''')
     
+    # Create settings
     c.execute('''CREATE TABLE settings (
         key TEXT PRIMARY KEY,
         value TEXT
     )''')
     
+    # Insert default admin
     c.execute("INSERT INTO users (username, password, role) VALUES ('admin', '786', 'Admin')")
+    
+    # Insert default settings
     c.execute("INSERT INTO settings (key, value) VALUES ('tax_rate', '0.17')")
     c.execute("INSERT INTO settings (key, value) VALUES ('store_name', 'M.H.M 786 Store')")
     
+    # Insert sample categories
     sample_cats = ['Grocery', 'Beverages', 'Dairy', 'Bakery', 'Meat', 'Vegetables']
     for cat in sample_cats:
         c.execute("INSERT INTO categories (name) VALUES (?)", (cat,))
     
+    # Insert sample products
     sample_products = [
         ('Bread (Roti)', 'Bakery', 50, 10),
         ('Milk (1L)', 'Dairy', 120, 8),
@@ -130,6 +146,7 @@ def reset_database():
     for name, cat, price, stock in sample_products:
         c.execute("INSERT INTO products (name, category, price, stock) VALUES (?,?,?,?)", (name, cat, price, stock))
     
+    # Insert sample sales for today
     today = datetime.now().strftime("%Y-%m-%d")
     sample_sales = [
         ('INV-001', 0, 'Bread (Roti)', 2, 50, 100, 'Cash', today + ' 10:00:00', 'active'),
@@ -149,6 +166,7 @@ def reset_database():
     conn.close()
     return True
 
+# Initialize database
 reset_database()
 
 def get_conn():
@@ -157,7 +175,7 @@ def get_conn():
 # ----------------------------- LOGIN -----------------------------
 def login_page():
     st.markdown("""
-    <div style='text-align:center; padding:50px 0;'>
+    <div style='text-align:center; padding:30px 0;'>
         <h1 style='color:#2E8B57;'>🛒 M.H.M 786 POS</h1>
         <h4>Secure Point of Sale System</h4>
     </div>
@@ -188,9 +206,9 @@ def login_page():
 # ============================================================================
 
 def today_sales_card():
-    """Complete Today's Sales Card with all metrics - Enhanced Design"""
+    """Complete Today's Sales Card - Error Free"""
     
-    # --- Custom CSS for Beautiful Cards ---
+    # --- Custom CSS ---
     st.markdown("""
     <style>
     .sales-card {
@@ -203,57 +221,25 @@ def today_sales_card():
         margin-bottom: 8px;
         transition: transform 0.2s;
     }
-    .sales-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 6px 20px rgba(0,0,0,0.1);
-    }
+    .sales-card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
     .sales-card-red { border-left-color: #dc3545; }
     .sales-card-blue { border-left-color: #007bff; }
     .sales-card-gold { border-left-color: #ffc107; }
     .sales-card-purple { border-left-color: #6f42c1; }
     .sales-card-orange { border-left-color: #fd7e14; }
-    .sales-card-teal { border-left-color: #20c997; }
-    
-    .sales-value {
-        font-size: 1.8rem;
-        font-weight: 700;
-        color: #1a1a2e;
-        margin: 3px 0;
-    }
-    .sales-label {
-        font-size: 0.85rem;
-        color: #6c757d;
-        font-weight: 600;
-        letter-spacing: 0.3px;
-        text-transform: uppercase;
-    }
-    .sales-sub {
-        font-size: 0.75rem;
-        color: #adb5bd;
-    }
-    .dashboard-title {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: #2E8B57;
-        margin-bottom: 15px;
-    }
-    .payment-card {
-        background: #f8f9fa;
-        border-radius: 10px;
-        padding: 12px;
-        text-align: center;
-        border: 1px solid #e9ecef;
-    }
+    .sales-value { font-size: 1.8rem; font-weight: 700; color: #1a1a2e; margin: 3px 0; }
+    .sales-label { font-size: 0.85rem; color: #6c757d; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; }
+    .payment-card { background: #f8f9fa; border-radius: 10px; padding: 12px; text-align: center; border: 1px solid #e9ecef; }
     </style>
     """, unsafe_allow_html=True)
     
-    st.markdown("<div class='dashboard-title'>💰 Today's Sales</div>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color:#2E8B57;'>💰 Today's Sales</h3>", unsafe_allow_html=True)
     
     conn = get_conn()
     c = conn.cursor()
     today = datetime.now().strftime("%Y-%m-%d")
     
-    # --- All queries with safe COALESCE ---
+    # --- Safe queries with COALESCE ---
     c.execute("SELECT COALESCE(SUM(total), 0) FROM sales WHERE date LIKE ? AND return_status = 'active'", (today+'%',))
     total_sales = c.fetchone()[0]
     
@@ -284,7 +270,6 @@ def today_sales_card():
     
     # --- Row 1: 4 Main Metrics ---
     col1, col2, col3, col4 = st.columns(4)
-    
     with col1:
         st.markdown(f"""
         <div class='sales-card'>
@@ -292,7 +277,6 @@ def today_sales_card():
             <div class='sales-value'>Rs. {total_sales:,.2f}</div>
         </div>
         """, unsafe_allow_html=True)
-    
     with col2:
         st.markdown(f"""
         <div class='sales-card sales-card-blue'>
@@ -300,7 +284,6 @@ def today_sales_card():
             <div class='sales-value'>{total_invoices}</div>
         </div>
         """, unsafe_allow_html=True)
-    
     with col3:
         st.markdown(f"""
         <div class='sales-card sales-card-gold'>
@@ -308,7 +291,6 @@ def today_sales_card():
             <div class='sales-value'>{total_items}</div>
         </div>
         """, unsafe_allow_html=True)
-    
     with col4:
         st.markdown(f"""
         <div class='sales-card sales-card-purple'>
@@ -320,10 +302,8 @@ def today_sales_card():
     st.markdown("<br>", unsafe_allow_html=True)
     
     # --- Row 2: Payment Methods ---
-    st.markdown("<div class='dashboard-title' style='font-size:1.1rem;'>💳 Payment Methods</div>", unsafe_allow_html=True)
-    
+    st.markdown("<h4 style='color:#495057;'>💳 Payment Methods</h4>", unsafe_allow_html=True)
     col_c1, col_c2, col_c3, col_c4 = st.columns(4)
-    
     with col_c1:
         st.markdown(f"""
         <div class='payment-card'>
@@ -331,7 +311,6 @@ def today_sales_card():
             <div style='font-size:1.3rem; font-weight:700;'>Rs. {cash_sales:,.2f}</div>
         </div>
         """, unsafe_allow_html=True)
-    
     with col_c2:
         st.markdown(f"""
         <div class='payment-card'>
@@ -339,7 +318,6 @@ def today_sales_card():
             <div style='font-size:1.3rem; font-weight:700;'>Rs. {card_sales:,.2f}</div>
         </div>
         """, unsafe_allow_html=True)
-    
     with col_c3:
         st.markdown(f"""
         <div class='payment-card'>
@@ -347,7 +325,6 @@ def today_sales_card():
             <div style='font-size:1.3rem; font-weight:700;'>Rs. {online_sales:,.2f}</div>
         </div>
         """, unsafe_allow_html=True)
-    
     with col_c4:
         st.markdown(f"""
         <div class='payment-card'>
@@ -360,44 +337,46 @@ def today_sales_card():
     
     # --- Row 3: Returned & Cancelled ---
     col_r1, col_r2 = st.columns(2)
-    
     with col_r1:
         st.markdown(f"""
         <div class='sales-card sales-card-red'>
             <div class='sales-label'>🔄 Returned</div>
             <div class='sales-value' style='font-size:1.4rem;'>Rs. {returned_amount:,.2f}</div>
-            <div class='sales-sub'>({returned_count} items returned)</div>
+            <div class='sales-sub'>({returned_count} items)</div>
         </div>
         """, unsafe_allow_html=True)
-    
     with col_r2:
         st.markdown(f"""
         <div class='sales-card sales-card-orange'>
             <div class='sales-label'>❌ Cancelled</div>
             <div class='sales-value' style='font-size:1.4rem;'>Rs. 0.00</div>
-            <div class='sales-sub'>(0 items cancelled)</div>
+            <div class='sales-sub'>(0 items)</div>
         </div>
         """, unsafe_allow_html=True)
     
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # --- View List Button ---
-    if st.button("📋 View Today's Sales List", use_container_width=False, type="primary"):
+    # --- View List Button with try/except ---
+    if st.button("📋 View Today's Sales List", type="primary"):
         with st.expander("📋 Today's Sales Details", expanded=True):
-            conn = get_conn()
-            df_today = pd.read_sql_query("""
-                SELECT invoice_no, product_name, qty, total, payment_method, date, return_status 
-                FROM sales 
-                WHERE date LIKE ? 
-                ORDER BY id DESC
-            """, (today+'%',), conn)
-            conn.close()
-            if not df_today.empty:
-                df_today['date'] = pd.to_datetime(df_today['date']).dt.strftime('%I:%M %p')
-                df_today['return_status'] = df_today['return_status'].apply(lambda x: '🔄 Returned' if x == 'returned' else '✅ Active')
-                st.dataframe(df_today, use_container_width=True, hide_index=True)
-            else:
-                st.info("No sales today yet.")
+            try:
+                conn = get_conn()
+                df_today = pd.read_sql_query("""
+                    SELECT invoice_no, product_name, qty, total, payment_method, date, return_status 
+                    FROM sales 
+                    WHERE date LIKE ? 
+                    ORDER BY id DESC
+                """, (today+'%',), conn)
+                conn.close()
+                if not df_today.empty:
+                    df_today['date'] = pd.to_datetime(df_today['date']).dt.strftime('%I:%M %p')
+                    df_today['return_status'] = df_today['return_status'].apply(lambda x: '🔄 Returned' if x == 'returned' else '✅ Active')
+                    st.dataframe(df_today, use_container_width=True, hide_index=True)
+                else:
+                    st.info("No sales today yet.")
+            except Exception as e:
+                st.error(f"Could not load sales list. Error: {e}")
+                st.info("Please try again or check database.")
 
 # ============================================================================
 # ============================= MAIN APP =====================================

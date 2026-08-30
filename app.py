@@ -14,12 +14,11 @@ if "username" not in st.session_state:
 if "cart" not in st.session_state:
     st.session_state.cart = []
 
-# ----------------------------- DATABASE RESET (FIXED) -----------------------------
+# ----------------------------- DATABASE SETUP -----------------------------
 def reset_database():
     conn = sqlite3.connect('pos_system.db')
     c = conn.cursor()
     
-    # Drop all existing tables
     c.execute("DROP TABLE IF EXISTS products")
     c.execute("DROP TABLE IF EXISTS sales")
     c.execute("DROP TABLE IF EXISTS users")
@@ -31,7 +30,6 @@ def reset_database():
     c.execute("DROP TABLE IF EXISTS purchases")
     c.execute("DROP TABLE IF EXISTS settings")
     
-    # --- Products ---
     c.execute('''CREATE TABLE products (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT UNIQUE,
@@ -40,7 +38,6 @@ def reset_database():
         stock INTEGER
     )''')
     
-    # --- Sales (with all required columns) ---
     c.execute('''CREATE TABLE sales (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         invoice_no TEXT,
@@ -54,7 +51,6 @@ def reset_database():
         return_status TEXT DEFAULT 'active'
     )''')
     
-    # --- Users ---
     c.execute('''CREATE TABLE users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE,
@@ -62,13 +58,11 @@ def reset_database():
         role TEXT
     )''')
     
-    # --- Categories ---
     c.execute('''CREATE TABLE categories (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT UNIQUE
     )''')
     
-    # --- Customers ---
     c.execute('''CREATE TABLE customers (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
@@ -77,7 +71,6 @@ def reset_database():
         address TEXT
     )''')
     
-    # --- Suppliers ---
     c.execute('''CREATE TABLE suppliers (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
@@ -86,7 +79,6 @@ def reset_database():
         address TEXT
     )''')
     
-    # --- Expenses ---
     c.execute('''CREATE TABLE expenses (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         description TEXT,
@@ -95,7 +87,6 @@ def reset_database():
         date TEXT
     )''')
     
-    # --- Returns ---
     c.execute('''CREATE TABLE returns (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         sale_id INTEGER,
@@ -105,7 +96,6 @@ def reset_database():
         date TEXT
     )''')
     
-    # --- Purchases ---
     c.execute('''CREATE TABLE purchases (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         supplier_id INTEGER,
@@ -116,25 +106,19 @@ def reset_database():
         date TEXT
     )''')
     
-    # --- Settings ---
     c.execute('''CREATE TABLE settings (
         key TEXT PRIMARY KEY,
         value TEXT
     )''')
     
-    # --- Default Admin ---
     c.execute("INSERT INTO users (username, password, role) VALUES ('admin', '786', 'Admin')")
-    
-    # --- Default Settings ---
     c.execute("INSERT INTO settings (key, value) VALUES ('tax_rate', '0.17')")
     c.execute("INSERT INTO settings (key, value) VALUES ('store_name', 'M.H.M 786 Store')")
     
-    # --- Sample Categories ---
     sample_cats = ['Grocery', 'Beverages', 'Dairy', 'Bakery', 'Meat', 'Vegetables']
     for cat in sample_cats:
         c.execute("INSERT INTO categories (name) VALUES (?)", (cat,))
     
-    # --- Sample Products ---
     sample_products = [
         ('Bread (Roti)', 'Bakery', 50, 10),
         ('Milk (1L)', 'Dairy', 120, 8),
@@ -146,7 +130,6 @@ def reset_database():
     for name, cat, price, stock in sample_products:
         c.execute("INSERT INTO products (name, category, price, stock) VALUES (?,?,?,?)", (name, cat, price, stock))
     
-    # --- Sample Sales (for testing Today's Sales card) ---
     today = datetime.now().strftime("%Y-%m-%d")
     sample_sales = [
         ('INV-001', 0, 'Bread (Roti)', 2, 50, 100, 'Cash', today + ' 10:00:00', 'active'),
@@ -168,14 +151,17 @@ def reset_database():
 
 reset_database()
 
-# ----------------------------- DB HELPER -----------------------------
 def get_conn():
     return sqlite3.connect('pos_system.db')
 
 # ----------------------------- LOGIN -----------------------------
 def login_page():
-    st.markdown("<h1 style='text-align:center;'>🛒 M.H.M 786 POS</h1>", unsafe_allow_html=True)
-    st.markdown("<h4 style='text-align:center;'>Secure Login</h4>", unsafe_allow_html=True)
+    st.markdown("""
+    <div style='text-align:center; padding:50px 0;'>
+        <h1 style='color:#2E8B57;'>🛒 M.H.M 786 POS</h1>
+        <h4>Secure Point of Sale System</h4>
+    </div>
+    """, unsafe_allow_html=True)
     st.divider()
     
     col1, col2, col3 = st.columns([1, 1.5, 1])
@@ -184,7 +170,7 @@ def login_page():
         username = st.text_input("Username", placeholder="admin")
         password = st.text_input("Password", type="password", placeholder="Enter 786")
         
-        if st.button("🔓 Login", use_container_width=True):
+        if st.button("🔓 Login", use_container_width=True, type="primary"):
             conn = get_conn()
             c = conn.cursor()
             c.execute("SELECT password, role FROM users WHERE username=?", (username,))
@@ -202,111 +188,201 @@ def login_page():
 # ============================================================================
 
 def today_sales_card():
-    """Complete Today's Sales Card with all metrics"""
+    """Complete Today's Sales Card with all metrics - Enhanced Design"""
     
-    st.markdown("### 💰 Today's Sales")
+    # --- Custom CSS for Beautiful Cards ---
+    st.markdown("""
+    <style>
+    .sales-card {
+        background: linear-gradient(145deg, #ffffff, #f8f9fa);
+        border-radius: 15px;
+        padding: 18px 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.06);
+        text-align: center;
+        border-left: 5px solid #2E8B57;
+        margin-bottom: 8px;
+        transition: transform 0.2s;
+    }
+    .sales-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+    }
+    .sales-card-red { border-left-color: #dc3545; }
+    .sales-card-blue { border-left-color: #007bff; }
+    .sales-card-gold { border-left-color: #ffc107; }
+    .sales-card-purple { border-left-color: #6f42c1; }
+    .sales-card-orange { border-left-color: #fd7e14; }
+    .sales-card-teal { border-left-color: #20c997; }
+    
+    .sales-value {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #1a1a2e;
+        margin: 3px 0;
+    }
+    .sales-label {
+        font-size: 0.85rem;
+        color: #6c757d;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
+    }
+    .sales-sub {
+        font-size: 0.75rem;
+        color: #adb5bd;
+    }
+    .dashboard-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #2E8B57;
+        margin-bottom: 15px;
+    }
+    .payment-card {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 12px;
+        text-align: center;
+        border: 1px solid #e9ecef;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("<div class='dashboard-title'>💰 Today's Sales</div>", unsafe_allow_html=True)
     
     conn = get_conn()
     c = conn.cursor()
     today = datetime.now().strftime("%Y-%m-%d")
     
-    # --- 1. Total Sales (Active only) ---
-    c.execute("""
-        SELECT COALESCE(SUM(total), 0) 
-        FROM sales 
-        WHERE date LIKE ? AND return_status = 'active'
-    """, (today+'%',))
+    # --- All queries with safe COALESCE ---
+    c.execute("SELECT COALESCE(SUM(total), 0) FROM sales WHERE date LIKE ? AND return_status = 'active'", (today+'%',))
     total_sales = c.fetchone()[0]
     
-    # --- 2. Total Invoices ---
-    c.execute("""
-        SELECT COUNT(DISTINCT invoice_no) 
-        FROM sales 
-        WHERE date LIKE ? AND return_status = 'active'
-    """, (today+'%',))
+    c.execute("SELECT COUNT(DISTINCT invoice_no) FROM sales WHERE date LIKE ? AND return_status = 'active'", (today+'%',))
     total_invoices = c.fetchone()[0]
     
-    # --- 3. Total Items Sold ---
-    c.execute("""
-        SELECT COALESCE(SUM(qty), 0) 
-        FROM sales 
-        WHERE date LIKE ? AND return_status = 'active'
-    """, (today+'%',))
+    c.execute("SELECT COALESCE(SUM(qty), 0) FROM sales WHERE date LIKE ? AND return_status = 'active'", (today+'%',))
     total_items = c.fetchone()[0]
     
-    # --- 4. Average Invoice Value ---
     avg_invoice = total_sales / total_invoices if total_invoices > 0 else 0.0
     
-    # --- 5. Payment Methods ---
-    # Cash
-    c.execute("""
-        SELECT COALESCE(SUM(total), 0) 
-        FROM sales 
-        WHERE date LIKE ? AND payment_method = 'Cash' AND return_status = 'active'
-    """, (today+'%',))
+    c.execute("SELECT COALESCE(SUM(total), 0) FROM sales WHERE date LIKE ? AND payment_method = 'Cash' AND return_status = 'active'", (today+'%',))
     cash_sales = c.fetchone()[0]
     
-    # Card
-    c.execute("""
-        SELECT COALESCE(SUM(total), 0) 
-        FROM sales 
-        WHERE date LIKE ? AND payment_method = 'Card' AND return_status = 'active'
-    """, (today+'%',))
+    c.execute("SELECT COALESCE(SUM(total), 0) FROM sales WHERE date LIKE ? AND payment_method = 'Card' AND return_status = 'active'", (today+'%',))
     card_sales = c.fetchone()[0]
     
-    # Online
-    c.execute("""
-        SELECT COALESCE(SUM(total), 0) 
-        FROM sales 
-        WHERE date LIKE ? AND payment_method = 'Online' AND return_status = 'active'
-    """, (today+'%',))
+    c.execute("SELECT COALESCE(SUM(total), 0) FROM sales WHERE date LIKE ? AND payment_method = 'Online' AND return_status = 'active'", (today+'%',))
     online_sales = c.fetchone()[0]
     
-    # Credit
-    c.execute("""
-        SELECT COALESCE(SUM(total), 0) 
-        FROM sales 
-        WHERE date LIKE ? AND payment_method = 'Credit' AND return_status = 'active'
-    """, (today+'%',))
+    c.execute("SELECT COALESCE(SUM(total), 0) FROM sales WHERE date LIKE ? AND payment_method = 'Credit' AND return_status = 'active'", (today+'%',))
     credit_sales = c.fetchone()[0]
     
-    # --- 6. Returned Sales ---
-    c.execute("""
-        SELECT COALESCE(SUM(total), 0), COUNT(*) 
-        FROM sales 
-        WHERE date LIKE ? AND return_status = 'returned'
-    """, (today+'%',))
+    c.execute("SELECT COALESCE(SUM(total), 0), COUNT(*) FROM sales WHERE date LIKE ? AND return_status = 'returned'", (today+'%',))
     returned_amount, returned_count = c.fetchone()
-    
-    # --- 7. Cancelled Sales (placeholder) ---
-    # We don't have cancelled status yet, so using 0
-    cancelled_sales = 0.0
-    cancelled_count = 0
     
     conn.close()
     
-    # --- Display Top Row (4 main metrics) ---
+    # --- Row 1: 4 Main Metrics ---
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("💰 Total Sales", f"Rs. {total_sales:,.2f}")
-    col2.metric("🧾 Invoices", total_invoices)
-    col3.metric("📦 Items Sold", total_items)
-    col4.metric("📊 Avg Invoice", f"Rs. {avg_invoice:,.2f}")
     
-    # --- Display Payment Methods ---
-    st.markdown("#### 💳 Payment Methods")
-    col_cash, col_card, col_online, col_credit = st.columns(4)
-    col_cash.metric("Cash", f"Rs. {cash_sales:,.2f}")
-    col_card.metric("Card", f"Rs. {card_sales:,.2f}")
-    col_online.metric("Online", f"Rs. {online_sales:,.2f}")
-    col_credit.metric("Credit", f"Rs. {credit_sales:,.2f}")
+    with col1:
+        st.markdown(f"""
+        <div class='sales-card'>
+            <div class='sales-label'>Total Sales</div>
+            <div class='sales-value'>Rs. {total_sales:,.2f}</div>
+        </div>
+        """, unsafe_allow_html=True)
     
-    # --- Display Returned & Cancelled ---
-    col_ret, col_can = st.columns(2)
-    col_ret.metric("🔄 Returned", f"Rs. {returned_amount:,.2f} ({returned_count} items)")
-    col_can.metric("❌ Cancelled", f"Rs. {cancelled_sales:,.2f} ({cancelled_count} items)")
+    with col2:
+        st.markdown(f"""
+        <div class='sales-card sales-card-blue'>
+            <div class='sales-label'>Invoices</div>
+            <div class='sales-value'>{total_invoices}</div>
+        </div>
+        """, unsafe_allow_html=True)
     
-    # --- Button to show today's sales list ---
-    if st.button("📋 View Today's Sales List"):
+    with col3:
+        st.markdown(f"""
+        <div class='sales-card sales-card-gold'>
+            <div class='sales-label'>Items Sold</div>
+            <div class='sales-value'>{total_items}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col4:
+        st.markdown(f"""
+        <div class='sales-card sales-card-purple'>
+            <div class='sales-label'>Avg Invoice</div>
+            <div class='sales-value'>Rs. {avg_invoice:,.2f}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # --- Row 2: Payment Methods ---
+    st.markdown("<div class='dashboard-title' style='font-size:1.1rem;'>💳 Payment Methods</div>", unsafe_allow_html=True)
+    
+    col_c1, col_c2, col_c3, col_c4 = st.columns(4)
+    
+    with col_c1:
+        st.markdown(f"""
+        <div class='payment-card'>
+            <div style='font-weight:600; color:#28a745;'>Cash</div>
+            <div style='font-size:1.3rem; font-weight:700;'>Rs. {cash_sales:,.2f}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col_c2:
+        st.markdown(f"""
+        <div class='payment-card'>
+            <div style='font-weight:600; color:#007bff;'>Card</div>
+            <div style='font-size:1.3rem; font-weight:700;'>Rs. {card_sales:,.2f}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col_c3:
+        st.markdown(f"""
+        <div class='payment-card'>
+            <div style='font-weight:600; color:#17a2b8;'>Online</div>
+            <div style='font-size:1.3rem; font-weight:700;'>Rs. {online_sales:,.2f}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col_c4:
+        st.markdown(f"""
+        <div class='payment-card'>
+            <div style='font-weight:600; color:#fd7e14;'>Credit</div>
+            <div style='font-size:1.3rem; font-weight:700;'>Rs. {credit_sales:,.2f}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # --- Row 3: Returned & Cancelled ---
+    col_r1, col_r2 = st.columns(2)
+    
+    with col_r1:
+        st.markdown(f"""
+        <div class='sales-card sales-card-red'>
+            <div class='sales-label'>🔄 Returned</div>
+            <div class='sales-value' style='font-size:1.4rem;'>Rs. {returned_amount:,.2f}</div>
+            <div class='sales-sub'>({returned_count} items returned)</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col_r2:
+        st.markdown(f"""
+        <div class='sales-card sales-card-orange'>
+            <div class='sales-label'>❌ Cancelled</div>
+            <div class='sales-value' style='font-size:1.4rem;'>Rs. 0.00</div>
+            <div class='sales-sub'>(0 items cancelled)</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # --- View List Button ---
+    if st.button("📋 View Today's Sales List", use_container_width=False, type="primary"):
         with st.expander("📋 Today's Sales Details", expanded=True):
             conn = get_conn()
             df_today = pd.read_sql_query("""
@@ -318,11 +394,10 @@ def today_sales_card():
             conn.close()
             if not df_today.empty:
                 df_today['date'] = pd.to_datetime(df_today['date']).dt.strftime('%I:%M %p')
+                df_today['return_status'] = df_today['return_status'].apply(lambda x: '🔄 Returned' if x == 'returned' else '✅ Active')
                 st.dataframe(df_today, use_container_width=True, hide_index=True)
             else:
                 st.info("No sales today yet.")
-    
-    st.divider()
 
 # ============================================================================
 # ============================= MAIN APP =====================================
@@ -333,7 +408,7 @@ def main_app():
     with st.sidebar:
         st.image("https://img.icons8.com/color/96/000000/grocery-store.png", width=80)
         st.markdown("### M.H.M 786 Store")
-        st.caption(f"User: {st.session_state.username}")
+        st.caption(f"👤 {st.session_state.username}")
         st.divider()
         
         if st.button("🚪 Logout", use_container_width=True):
@@ -343,19 +418,25 @@ def main_app():
         
         st.markdown("---")
         st.markdown("### 📋 Menu")
-        st.caption("🏠 Dashboard")
-        st.caption("💰 POS / New Sale")
-        st.caption("📦 Products")
-        st.caption("📂 Categories")
-        st.caption("👤 Customers")
-        st.caption("🏭 Suppliers")
-        st.caption("💸 Expenses")
-        st.caption("⚙️ Settings")
+        menu_items = [
+            "🏠 Dashboard",
+            "💰 POS / New Sale",
+            "📦 Products",
+            "📂 Categories",
+            "👤 Customers",
+            "🏭 Suppliers",
+            "💸 Expenses",
+            "⚙️ Settings"
+        ]
+        for item in menu_items:
+            st.caption(item)
+        
+        st.markdown("---")
+        st.caption("© 2026 M.H.M 786")
     
     # --- Main Content ---
-    st.header("📊 Dashboard")
+    st.header("📊 Executive Dashboard")
     
-    # Greeting
     hour = datetime.now().hour
     if hour < 12:
         greet = "🌅 Good Morning"
@@ -367,10 +448,11 @@ def main_app():
     st.caption(f"📅 {datetime.now().strftime('%A, %d %B %Y')} | ⏰ {datetime.now().strftime('%I:%M %p')}")
     st.divider()
     
-    # ---- CALL THE TODAY'S SALES CARD ----
+    # ---- CALL TODAY'S SALES CARD ----
     today_sales_card()
     
     # --- Quick Stats Footer ---
+    st.divider()
     st.subheader("📈 Quick Stats")
     conn = get_conn()
     c = conn.cursor()
@@ -384,12 +466,12 @@ def main_app():
     conn.close()
     
     col1, col2, col3 = st.columns(3)
-    col1.metric("Today's Expenses", f"Rs. {today_expenses:,.2f}")
-    col2.metric("Total Products", total_products)
-    col3.metric("Low Stock Alert", low_stock, delta="Need restock" if low_stock > 0 else "OK")
+    col1.metric("💸 Today's Expenses", f"Rs. {today_expenses:,.2f}")
+    col2.metric("📦 Total Products", total_products)
+    col3.metric("⚠️ Low Stock Alert", low_stock, delta="Need restock" if low_stock > 0 else "✅ OK")
     
     st.divider()
-    st.caption("✅ Today's Sales Card is fully functional. InshaAllah!")
+    st.caption("✅ M.H.M 786 POS - Fully Functional | InshaAllah!")
 
 # ============================================================================
 # ============================= RUN ==========================================
